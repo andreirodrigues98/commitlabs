@@ -14,7 +14,7 @@
 
   const gl = canvas.getContext("webgl2", {
     antialias: true,
-    alpha: false,
+    alpha: true,
     depth: true,
     premultipliedAlpha: false,
     powerPreference: "high-performance"
@@ -369,7 +369,9 @@
   gl.depthFunc(gl.LEQUAL);
   gl.enable(gl.CULL_FACE);
   gl.cullFace(gl.BACK);
-  gl.clearColor(0,0,0,1);
+  // Transparent clear lets the adapted Codrops Demo 6 scene remain visible
+  // around/behind the computer while the computer itself stays fully opaque.
+  gl.clearColor(0,0,0,0);
   gl.useProgram(program);
   gl.uniform1i(loc.screenTexture, 0);
 

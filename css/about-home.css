@@ -2,7 +2,7 @@
   position: relative;
   z-index: 3;
   margin-top: -100svh;
-  min-height: 300svh;
+  min-height: 340svh;
   overflow: visible;
   isolation: isolate;
   background-color: var(--cl-paper);
@@ -42,7 +42,6 @@
   font-weight: 700;
   letter-spacing: .18em;
   text-transform: uppercase;
-  will-change: transform, opacity;
 }
 
 .about-home__layout {
@@ -64,7 +63,6 @@
 }
 .about-home__title span {
   display: block;
-  will-change: transform, clip-path, opacity;
 }
 .about-home__title strong {
   color: var(--cl-blue);
@@ -76,7 +74,6 @@
   z-index: 6;
   align-self: start;
   padding-top: clamp(56px, 7vh, 86px);
-  will-change: transform, opacity;
 }
 .about-home__lead,
 .about-home__secondary {
@@ -113,7 +110,7 @@
 }
 
 @media (max-width: 1080px) {
-  .about-home { min-height: 285svh; }
+  .about-home { min-height: 325svh; }
   .about-home__inner {
     height: auto;
     min-height: 100svh;
@@ -132,7 +129,7 @@
 
 @media (max-width: 760px) {
   .about-home {
-    min-height: 270svh;
+    min-height: 300svh;
     overflow: hidden;
   }
   .about-home__inner {
@@ -158,21 +155,4 @@
 
 html[lang="pt-BR"] .about-home__title {
   font-size: clamp(50px, 5.9vw, 102px);
-}
-
-
-/* V10 — estado inicial real antes do primeiro frame visível.
-   A classe é adicionada pelo controller antes do preloader liberar o site. */
-html.commit-about-motion .about-home__label {
-  opacity: 0;
-  transform: translate3d(0, 34px, 0);
-}
-html.commit-about-motion .about-home__title > span {
-  opacity: .02;
-  transform: translate3d(0, 92px, 0);
-  clip-path: inset(100% 0 0 0);
-}
-html.commit-about-motion .about-home__copy-column {
-  opacity: 0;
-  transform: translate3d(0, 56px, 0);
 }

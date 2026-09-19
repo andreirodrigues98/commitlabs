@@ -1,6 +1,23 @@
 (() => {
   "use strict";
 
+  /*
+   * Commit Labs — Hero WebGL background
+   *
+   * Geometry and natural motion are an integration/adaptation of Demo 6
+   * ("Hawking — A Biography") from DecorativeBackgrounds by Louis Hoebregts
+   * for Codrops (2017):
+   * https://github.com/Mamboleoo/DecorativeBackgrounds/blob/master/js/demo6.js
+   *
+   * The original Demo 6 model is preserved here: multiple straight THREE-style
+   * polylines with randomized 3D rotations, 50 sampled points per line on
+   * desktop, sinusoidal displacement weighted toward each line's extremities,
+   * and a slowly rotating parent group. This integration ports that exact
+   * structure to the site's existing WebGL stack, then adds Commit Labs colors,
+   * responsive density, cursor repulsion on the existing vertices, and a
+   * scroll-linked fade during the computer zoom.
+   */
+
   const canvas = document.getElementById("heroWebglBackground");
   const intro = document.getElementById("intro");
   const content = document.getElementById("site-content");
@@ -13,6 +30,7 @@
     premultipliedAlpha: false,
     powerPreference: "high-performance"
   });
+
   if (!gl) {
     canvas.hidden = true;
     return;
@@ -21,407 +39,420 @@
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
-  const seeded = (() => {
-    let s = 0x8f31a2c7;
-    return () => {
-      s ^= s << 13; s ^= s >>> 17; s ^= s << 5;
-      return ((s >>> 0) % 1000000) / 1000000;
-    };
-  })();
+  const smooth = (a, b, v) => {
+    if (a === b) return v < a ? 0 : 1;
+    const t = clamp((v - a) / (b - a));
+    return t * t * (3 - 2 * t);
+  };
+
+  // Demo 6 camera constants: PerspectiveCamera(40deg), camera.z = 280.
+  const FOV = 40 * Math.PI / 180;
+  const CAMERA_Z = 280;
+  const FOCAL = 1 / Math.tan(FOV / 2);
 
   const VS = `#version 300 es
     precision highp float;
     layout(location=0) in vec3 aPosition;
-    layout(location=1) in float aPhase;
-    layout(location=2) in float aDepth;
-    layout(location=3) in float aWeight;
+    layout(location=1) in vec3 aColor;
+    layout(location=2) in float aAlpha;
 
-    uniform float uTime;
-    uniform vec2 uPointer;
-    uniform float uPointerActive;
-    uniform float uPointerSpeed;
-    uniform float uPointMode;
-    uniform float uFade;
-    uniform float uPixelRatio;
+    uniform float uAspect;
+    uniform float uOpacity;
 
+    out vec3 vColor;
     out float vAlpha;
-    out float vBlueMix;
 
     void main() {
-      vec2 p = aPosition.xy;
-
-      float breatheA = sin(uTime * 0.38 + aPhase + p.y * 3.4) * (0.006 + aDepth * 0.010);
-      float breatheB = cos(uTime * 0.29 + aPhase * 1.73 + p.x * 4.2) * (0.005 + aDepth * 0.008);
-      p += vec2(breatheA, breatheB);
-
-      vec2 delta = p - uPointer;
-      float dist = max(length(delta), 0.0001);
-      float radius = 0.24 + uPointerSpeed * 0.08;
-      float influence = smoothstep(radius, 0.0, dist) * uPointerActive;
-      vec2 repelDir = delta / dist;
-      float repel = influence * (0.055 + 0.085 * uPointerSpeed) * (0.56 + aDepth * 0.88);
-      p += repelDir * repel;
-
-      // Pequena defasagem por profundidade para evitar a sensação de imagem 2D.
-      p += vec2(uPointer.x, uPointer.y) * (aDepth - 0.45) * 0.012 * uPointerActive;
-
-      gl_Position = vec4(p, aPosition.z, 1.0);
-      if (uPointMode > 0.5) {
-        gl_PointSize = (1.35 + aWeight * 2.65 + aDepth * 1.35) * uPixelRatio;
-      }
-
-      vec2 muteP = vec2((p.x - 0.02) * 0.82, (p.y + 0.02) * 1.18);
-      float centralMute = smoothstep(0.18, 0.58, length(muteP));
-      vAlpha = uFade * (0.16 + aDepth * 0.46 + aWeight * 0.14) * mix(0.42, 1.0, centralMute);
-      vBlueMix = clamp(0.22 + aDepth * 0.78, 0.0, 1.0);
+      float viewW = max(1.0, ${CAMERA_Z.toFixed(1)} - aPosition.z);
+      gl_Position = vec4(
+        aPosition.x * ${FOCAL.toFixed(8)} / max(0.20, uAspect),
+        aPosition.y * ${FOCAL.toFixed(8)},
+        0.0,
+        viewW
+      );
+      vColor = aColor;
+      vAlpha = aAlpha * uOpacity;
     }`;
 
   const FS = `#version 300 es
     precision highp float;
-    uniform float uPointMode;
+    in vec3 vColor;
     in float vAlpha;
-    in float vBlueMix;
     out vec4 outColor;
-
     void main() {
-      if (uPointMode > 0.5) {
-        vec2 p = gl_PointCoord - vec2(0.5);
-        float r = length(p);
-        if (r > 0.5) discard;
-      }
-
-      vec3 deepBlue = vec3(0.0, 0.18, 0.56);
-      vec3 commitBlue = vec3(0.0, 0.40, 1.0);
-      vec3 pale = vec3(0.64, 0.79, 1.0);
-      vec3 color = mix(deepBlue, commitBlue, vBlueMix);
-      color = mix(color, pale, max(0.0, vBlueMix - 0.82) * 0.24);
-      outColor = vec4(color, vAlpha);
+      outColor = vec4(vColor, vAlpha);
     }`;
 
-  function shader(type, source) {
-    const sh = gl.createShader(type);
-    gl.shaderSource(sh, source);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-      console.warn("Commit hero background shader:", gl.getShaderInfoLog(sh));
+  function compile(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.warn("Commit Demo 6 shader:", gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
       return null;
     }
-    return sh;
+    return shader;
   }
 
   const program = gl.createProgram();
-  const vs = shader(gl.VERTEX_SHADER, VS);
-  const fs = shader(gl.FRAGMENT_SHADER, FS);
-  if (!vs || !fs) {
+  const vertexShader = compile(gl.VERTEX_SHADER, VS);
+  const fragmentShader = compile(gl.FRAGMENT_SHADER, FS);
+  if (!vertexShader || !fragmentShader) {
     canvas.hidden = true;
     return;
   }
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
   gl.linkProgram(program);
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.warn("Commit hero background program:", gl.getProgramInfoLog(program));
+    console.warn("Commit Demo 6 program:", gl.getProgramInfoLog(program));
     canvas.hidden = true;
     return;
   }
 
   const loc = {
-    time: gl.getUniformLocation(program, "uTime"),
-    pointer: gl.getUniformLocation(program, "uPointer"),
-    pointerActive: gl.getUniformLocation(program, "uPointerActive"),
-    pointerSpeed: gl.getUniformLocation(program, "uPointerSpeed"),
-    pointMode: gl.getUniformLocation(program, "uPointMode"),
-    fade: gl.getUniformLocation(program, "uFade"),
-    pixelRatio: gl.getUniformLocation(program, "uPixelRatio")
+    aspect: gl.getUniformLocation(program, "uAspect"),
+    opacity: gl.getUniformLocation(program, "uOpacity")
   };
+
+  const vao = gl.createVertexArray();
+  const vbo = gl.createBuffer();
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+
+  const STRIDE = 7 * 4;
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, STRIDE, 0);
+  gl.enableVertexAttribArray(1);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STRIDE, 3 * 4);
+  gl.enableVertexAttribArray(2);
+  gl.vertexAttribPointer(2, 1, gl.FLOAT, false, STRIDE, 6 * 4);
+  gl.bindVertexArray(null);
+
+  // Commit Labs palette. The geometry/motion stays Demo 6; only material colors
+  // are adapted to the brand as requested.
+  const PALETTE = [
+    { color: [0.000, 0.400, 1.000], alpha: 0.78, weight: 0.52 }, // Commit blue
+    { color: [0.035, 0.145, 0.430], alpha: 0.72, weight: 0.30 }, // deep blue
+    { color: [0.370, 0.395, 0.440], alpha: 0.54, weight: 0.12 }, // graphite gray
+    { color: [0.790, 0.840, 0.920], alpha: 0.62, weight: 0.06 }  // sparse pale threads
+  ];
+
+  function pickMaterial() {
+    const r = Math.random();
+    let acc = 0;
+    for (const material of PALETTE) {
+      acc += material.weight;
+      if (r <= acc) return material;
+    }
+    return PALETTE[0];
+  }
 
   const state = {
     width: 1,
     height: 1,
+    aspect: 1,
     dpr: 1,
-    pointerX: 0.18,
-    pointerY: 0.04,
-    pointerTargetX: 0.18,
-    pointerTargetY: 0.04,
-    pointerActive: 0,
-    pointerTargetActive: 0,
-    pointerSpeed: 0,
-    pointerSpeedTarget: 0,
-    lastPointerX: innerWidth * 0.59,
-    lastPointerY: innerHeight * 0.48,
-    lastPointerTime: performance.now(),
-    lastTime: performance.now(),
+    scroll: 0,
     visible: true,
     ready: false,
-    scrollProgress: 0,
-    lineCount: 0,
-    pointCount: 0
+    profile: "",
+    lastTime: performance.now(),
+    pointerX: 0,
+    pointerY: 0,
+    pointerTargetX: 0,
+    pointerTargetY: 0,
+    pointerActive: 0,
+    pointerTargetActive: 0,
+    lines: [],
+    vertexData: new Float32Array(0),
+    drawVertexCount: 0
   };
 
-  let lineVao = null;
-  let pointVao = null;
-  let lineCount = 0;
-  let pointCount = 0;
-  let currentProfile = "";
-
-  function profile() {
-    if (innerWidth <= 600) return "mobile";
+  function getProfile() {
+    if (innerWidth <= 620) return "mobile";
     if (innerWidth <= 1050) return "tablet";
     return "desktop";
   }
 
-  function makeVao(vertices) {
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    const stride = 6 * 4;
-    const buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 1, gl.FLOAT, false, stride, 3 * 4);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 4 * 4);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, stride, 5 * 4);
-
-    gl.bindVertexArray(null);
-    return vao;
-  }
-
-  function cubic(a, b, c, d, t) {
-    const mt = 1 - t;
-    return mt * mt * mt * a + 3 * mt * mt * t * b + 3 * mt * t * t * c + t * t * t * d;
-  }
-
-  function strandPoint(seed, i, segments) {
-    const t = i / segments;
-    let x = cubic(seed.startX, seed.c1X, seed.c2X, seed.endX, t);
-    let y = cubic(seed.startY, seed.c1Y, seed.c2Y, seed.endY, t);
-
-    // Micro-ondulação contínua ao longo da curva. Como ela é aplicada sobre uma
-    // Bézier completa, não existe mais a sensação de raios saindo de um núcleo.
-    const wave = Math.sin(t * seed.freq + seed.phase) * seed.wiggle * Math.sin(Math.PI * t);
-    const wave2 = Math.cos(t * (seed.freq * 0.63) + seed.phase * 1.7) * seed.wiggle * 0.42 * Math.sin(Math.PI * t);
-    x += wave * seed.normalX + wave2;
-    y += wave * seed.normalY - wave2 * 0.34;
-    return [x, y];
+  function profileConfig(profile) {
+    // Desktop deliberately keeps the original Demo 6 density: 50 lines x
+    // 50 sampled points. Mobile is lighter without removing the composition.
+    if (profile === "mobile") return { lines: 30, dots: 38, dpr: 1.20 };
+    if (profile === "tablet") return { lines: 40, dots: 44, dpr: 1.40 };
+    return { lines: 50, dots: 50, dpr: 1.65 };
   }
 
   function rebuildGeometry() {
-    const p = profile();
-    if (p === currentProfile && lineVao && pointVao) return;
-    currentProfile = p;
+    const profile = getProfile();
+    if (profile === state.profile && state.lines.length) return;
+    state.profile = profile;
 
-    if (lineVao) gl.deleteVertexArray(lineVao);
-    if (pointVao) gl.deleteVertexArray(pointVao);
+    const config = profileConfig(profile);
+    const radius = 100; // original Demo 6 value
+    const lines = [];
 
-    const mobile = p === "mobile";
-    const tablet = p === "tablet";
-    const strands = mobile ? 20 : tablet ? 30 : 40;
-    const segments = mobile ? 15 : tablet ? 18 : 22;
-    const particleEvery = mobile ? 4 : 3;
-    const lineVertices = [];
-    const pointVertices = [];
+    for (let i = 0; i < config.lines; i++) {
+      // These properties mirror demo6.js: speed 250..550, radius ~= 90..110,
+      // and randomized XYZ rotation on every line.
+      const lineRadius = Math.floor(radius + (Math.random() - 0.5) * (radius * 0.2));
+      const material = pickMaterial();
+      const points = [];
 
-    for (let s = 0; s < strands; s++) {
-      const r1 = seeded();
-      const r2 = seeded();
-      const r3 = seeded();
-      const r4 = seeded();
-      const r5 = seeded();
-      const side = s % 2 === 0 ? -1 : 1;
-      let seed;
-
-      if (mobile && s % 3 !== 0) {
-        // Em portrait, a maior parte dos fios viaja vertical/diagonalmente. Isso
-        // preenche o espaço ao redor do computador sem parecer a versão desktop
-        // simplesmente comprimida.
-        const topToBottom = s % 2 === 0;
-        const startY = topToBottom ? 1.16 : -1.16;
-        const endY = topToBottom ? -1.10 : 1.10;
-        const startX = (r1 - 0.5) * 1.55;
-        const endX = clamp(startX + (r2 - 0.5) * 0.92, -1.02, 1.02);
-        const bow = (r3 - 0.5) * 0.78 + (s % 4 === 0 ? 0.34 : -0.08);
-        seed = {
-          startX, startY,
-          c1X: clamp(startX + bow, -1.18, 1.18),
-          c1Y: topToBottom ? 0.62 : -0.62,
-          c2X: clamp(endX - bow * 0.75, -1.18, 1.18),
-          c2Y: topToBottom ? -0.54 : 0.54,
-          endX, endY,
-          phase: r4 * 8 + s * 0.43,
-          freq: 5.8 + r5 * 5.2,
-          wiggle: 0.014 + r2 * 0.022,
-          normalX: 0.72,
-          normalY: 0.48,
-          depth: 0.18 + seeded() * 0.82,
-          weight: seeded()
-        };
-      } else {
-        // Desktop/tablet: fios longos entram pelas bordas, contornam o centro e
-        // saem em direções diferentes. Sem ponto focal/radial tipo Hawking.
-        const startX = side * (1.05 + r1 * 0.28);
-        const startY = (r2 - 0.5) * (mobile ? 1.70 : 1.62);
-        const sameSide = s % 5 === 0;
-        const endX = sameSide
-          ? side * (0.16 + r3 * 0.42)
-          : -side * (0.78 + r3 * 0.42);
-        const endY = clamp(startY + (r4 - 0.5) * 1.02, -1.08, 1.08);
-        const lift = (r5 - 0.5) * 0.74;
-        seed = {
-          startX, startY,
-          c1X: side * (0.62 + seeded() * 0.26),
-          c1Y: clamp(startY + lift, -1.05, 1.05),
-          c2X: sameSide ? side * (0.34 + seeded() * 0.20) : -side * (0.05 + seeded() * 0.34),
-          c2Y: clamp(endY - lift * 0.84 + (seeded() - 0.5) * 0.24, -1.08, 1.08),
-          endX, endY,
-          phase: r2 * 8 + s * 0.37,
-          freq: 6.2 + r4 * 5.6,
-          wiggle: (mobile ? 0.014 : 0.018) + r5 * (mobile ? 0.020 : 0.030),
-          normalX: side * 0.56,
-          normalY: 0.72,
-          depth: 0.18 + seeded() * 0.82,
-          weight: seeded()
-        };
+      for (let j = 0; j < config.dots; j++) {
+        const x = ((j / config.dots) * lineRadius * 2) - lineRadius;
+        const ratio = 1 - ((lineRadius - Math.abs(x)) / lineRadius);
+        points.push({
+          x,
+          ratio,
+          offsetX: 0,
+          offsetY: 0
+        });
       }
 
-      let prev = strandPoint(seed, 0, segments);
-      for (let i = 1; i <= segments; i++) {
-        const curr = strandPoint(seed, i, segments);
-        const phaseA = seed.phase + (i - 1) * 0.10;
-        const phaseB = seed.phase + i * 0.10;
-        lineVertices.push(prev[0], prev[1], seed.depth * 0.15, phaseA, seed.depth, seed.weight);
-        lineVertices.push(curr[0], curr[1], seed.depth * 0.15, phaseB, seed.depth, seed.weight);
-
-        if (i % particleEvery === 0 && seeded() > (mobile ? 0.68 : 0.52)) {
-          pointVertices.push(curr[0], curr[1], seed.depth * 0.15, phaseB, seed.depth, seed.weight);
-        }
-        prev = curr;
-      }
+      lines.push({
+        speed: Math.random() * 300 + 250,
+        wave: Math.random(), // kept for parity with original Demo 6 state
+        radius: lineRadius,
+        rotationX: Math.random() * Math.PI,
+        rotationY: Math.random() * Math.PI,
+        rotationZ: Math.random() * Math.PI,
+        color: material.color,
+        alpha: material.alpha,
+        points
+      });
     }
 
-    lineVao = makeVao(lineVertices);
-    pointVao = makeVao(pointVertices);
-    lineCount = lineVertices.length / 6;
-    pointCount = pointVertices.length / 6;
-    state.lineCount = lineCount;
-    state.pointCount = pointCount;
+    state.lines = lines;
+    const segmentCount = config.lines * Math.max(0, config.dots - 1);
+    state.drawVertexCount = segmentCount * 2;
+    state.vertexData = new Float32Array(state.drawVertexCount * 7);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, state.vertexData.byteLength, gl.DYNAMIC_DRAW);
   }
 
-  function resize() {
-    const w = Math.max(1, canvas.clientWidth || innerWidth);
-    const h = Math.max(1, canvas.clientHeight || innerHeight);
-    const mobile = innerWidth <= 760;
-    const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.25 : 1.65);
-    const rw = Math.max(1, Math.round(w * dpr));
-    const rh = Math.max(1, Math.round(h * dpr));
-    if (rw !== canvas.width || rh !== canvas.height) {
-      canvas.width = rw;
-      canvas.height = rh;
-      state.width = w;
-      state.height = h;
-      state.dpr = dpr;
-      gl.viewport(0, 0, rw, rh);
+  function rotateXYZ(x, y, z, rx, ry, rz) {
+    // Default THREE.Euler order is XYZ. Applying local X -> Y -> Z matches the
+    // Object3D rotation behavior used by the original Demo 6 lines.
+    let c = Math.cos(rx), s = Math.sin(rx);
+    let y1 = y * c - z * s;
+    let z1 = y * s + z * c;
+    let x1 = x;
+
+    c = Math.cos(ry); s = Math.sin(ry);
+    let x2 = x1 * c + z1 * s;
+    let z2 = -x1 * s + z1 * c;
+    let y2 = y1;
+
+    c = Math.cos(rz); s = Math.sin(rz);
+    return [
+      x2 * c - y2 * s,
+      x2 * s + y2 * c,
+      z2
+    ];
+  }
+
+  function projectNdc(x, y, z) {
+    const viewW = Math.max(1, CAMERA_Z - z);
+    return [
+      (x * FOCAL / Math.max(0.2, state.aspect)) / viewW,
+      (y * FOCAL) / viewW,
+      viewW
+    ];
+  }
+
+  function updateLinePoint(line, point, pointIndex, timeMs, groupRx, groupRy, dt) {
+    // Exact natural displacement from Demo 6:
+    // y = sin(time / speed + j * .15) * 12 * ratio
+    const naturalY = Math.sin(timeMs / line.speed + pointIndex * 0.15) * 12 * point.ratio;
+
+    let p = rotateXYZ(
+      point.x,
+      naturalY,
+      0,
+      line.rotationX,
+      line.rotationY,
+      line.rotationZ
+    );
+    p = rotateXYZ(p[0], p[1], p[2], groupRx, groupRy, 0);
+
+    let targetOffsetX = 0;
+    let targetOffsetY = 0;
+
+    if (state.pointerActive > 0.002) {
+      const projected = projectNdc(p[0], p[1], p[2]);
+      const dx = projected[0] - state.pointerX;
+      const dy = projected[1] - state.pointerY;
+      const distance = Math.hypot(dx, dy);
+      const radiusNdc = 0.235;
+
+      if (distance < radiusNdc) {
+        const safeDistance = Math.max(0.0001, distance);
+        const t = 1 - distance / radiusNdc;
+        // A smooth local field deforms the SAME existing vertices. No new
+        // strands/particles are introduced by the interaction.
+        const influence = t * t * (3 - 2 * t) * state.pointerActive;
+        const ndcPush = 0.072 * influence;
+        const dirX = dx / safeDistance;
+        const dirY = dy / safeDistance;
+
+        // Convert screen/NDC push back to world units at this vertex depth.
+        targetOffsetX = dirX * ndcPush * projected[2] * state.aspect / FOCAL;
+        targetOffsetY = dirY * ndcPush * projected[2] / FOCAL;
+      }
     }
-    rebuildGeometry();
+
+    const hasForce = Math.abs(targetOffsetX) + Math.abs(targetOffsetY) > 0.0001;
+    const response = hasForce ? 15.0 : 4.3;
+    point.offsetX = damp(point.offsetX, targetOffsetX, response, dt);
+    point.offsetY = damp(point.offsetY, targetOffsetY, response, dt);
+
+    return [p[0] + point.offsetX, p[1] + point.offsetY, p[2]];
+  }
+
+  function writeVertex(data, offset, p, line) {
+    data[offset] = p[0];
+    data[offset + 1] = p[1];
+    data[offset + 2] = p[2];
+    data[offset + 3] = line.color[0];
+    data[offset + 4] = line.color[1];
+    data[offset + 5] = line.color[2];
+    data[offset + 6] = line.alpha;
+    return offset + 7;
+  }
+
+  function updateGeometry(timeMs, dt) {
+    // Original Demo 6 parent-group motion:
+    // sphere.rotation.y = time * .0001; sphere.rotation.x = -time * .0001
+    const groupRy = timeMs * 0.0001;
+    const groupRx = -timeMs * 0.0001;
+    const data = state.vertexData;
+    let cursor = 0;
+
+    for (const line of state.lines) {
+      const points = line.points;
+      let previous = updateLinePoint(line, points[0], 0, timeMs, groupRx, groupRy, dt);
+
+      for (let j = 1; j < points.length; j++) {
+        const current = updateLinePoint(line, points[j], j, timeMs, groupRx, groupRy, dt);
+        cursor = writeVertex(data, cursor, previous, line);
+        cursor = writeVertex(data, cursor, current, line);
+        previous = current;
+      }
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
   }
 
   function readScroll() {
     const rect = intro.getBoundingClientRect();
     const max = Math.max(1, intro.offsetHeight - innerHeight);
-    state.scrollProgress = clamp(-rect.top / max);
+    state.scroll = clamp(-rect.top / max);
   }
 
-  function pointerPosition(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const x = ((clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
-    const y = -(((clientY - rect.top) / Math.max(1, rect.height)) * 2 - 1);
-    return [clamp(x, -1.2, 1.2), clamp(y, -1.2, 1.2)];
+  function resize() {
+    rebuildGeometry();
+    const config = profileConfig(state.profile || getProfile());
+    const width = Math.max(1, canvas.clientWidth || innerWidth);
+    const height = Math.max(1, canvas.clientHeight || innerHeight);
+    const dpr = Math.min(devicePixelRatio || 1, config.dpr);
+    const rw = Math.max(1, Math.round(width * dpr));
+    const rh = Math.max(1, Math.round(height * dpr));
+
+    if (canvas.width !== rw || canvas.height !== rh) {
+      canvas.width = rw;
+      canvas.height = rh;
+      gl.viewport(0, 0, rw, rh);
+    }
+
+    state.width = width;
+    state.height = height;
+    state.aspect = width / height;
+    state.dpr = dpr;
+  }
+
+  function pointerToNdc(e) {
+    const rect = intro.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / Math.max(1, rect.width)) * 2 - 1;
+    const y = 1 - ((e.clientY - rect.top) / Math.max(1, rect.height)) * 2;
+    return [clamp(x, -1.25, 1.25), clamp(y, -1.25, 1.25)];
   }
 
   function onPointerMove(e) {
+    // Mouse/pen only. Touch continues to own vertical scrolling with no custom
+    // gesture interception; mobile keeps the original natural Demo 6 motion.
+    if (e.pointerType === "touch") return;
     const rect = intro.getBoundingClientRect();
     if (rect.bottom <= 0 || rect.top >= innerHeight) return;
-
-    const now = performance.now();
-    const dt = Math.max(16, now - state.lastPointerTime);
-    const dist = Math.hypot(e.clientX - state.lastPointerX, e.clientY - state.lastPointerY);
-    const pxPerMs = dist / dt;
-    state.pointerSpeedTarget = clamp(pxPerMs / 1.6, 0, 1);
-    const pos = pointerPosition(e.clientX, e.clientY);
-    state.pointerTargetX = pos[0];
-    state.pointerTargetY = pos[1];
+    const p = pointerToNdc(e);
+    state.pointerTargetX = p[0];
+    state.pointerTargetY = p[1];
     state.pointerTargetActive = 1;
-    state.lastPointerX = e.clientX;
-    state.lastPointerY = e.clientY;
-    state.lastPointerTime = now;
   }
 
-  function onPointerLeave() {
+  function clearPointer() {
     state.pointerTargetActive = 0;
-    state.pointerSpeedTarget = 0;
   }
 
   intro.addEventListener("pointermove", onPointerMove, { passive: true });
-  intro.addEventListener("pointerleave", onPointerLeave, { passive: true });
-  intro.addEventListener("pointercancel", onPointerLeave, { passive: true });
+  intro.addEventListener("pointerleave", clearPointer, { passive: true });
+  intro.addEventListener("pointercancel", clearPointer, { passive: true });
+  window.addEventListener("blur", clearPointer, { passive: true });
   window.addEventListener("scroll", readScroll, { passive: true });
-  window.addEventListener("resize", () => { resize(); readScroll(); }, { passive: true });
+  window.addEventListener("resize", () => {
+    resize();
+    readScroll();
+  }, { passive: true });
 
   const observer = new IntersectionObserver((entries) => {
     state.visible = entries.some((entry) => entry.isIntersecting);
-  }, { rootMargin: "20% 0px 20% 0px" });
+    if (!state.visible) clearPointer();
+  }, { rootMargin: "15% 0px 15% 0px" });
   observer.observe(intro);
 
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.disable(gl.DEPTH_TEST);
   gl.clearColor(0, 0, 0, 0);
-  gl.useProgram(program);
+  gl.lineWidth(1);
 
   function render(now) {
     requestAnimationFrame(render);
-    if (!state.visible || content?.hidden) return;
+    if (!state.ready || !state.visible || content?.hidden) return;
 
     resize();
     readScroll();
+
     const dt = Math.min(0.05, Math.max(0.001, (now - state.lastTime) / 1000));
     state.lastTime = now;
 
-    state.pointerX = damp(state.pointerX, state.pointerTargetX, 7.2, dt);
-    state.pointerY = damp(state.pointerY, state.pointerTargetY, 7.2, dt);
-    state.pointerActive = damp(state.pointerActive, state.pointerTargetActive, state.pointerTargetActive ? 8.0 : 3.4, dt);
-    state.pointerSpeed = damp(state.pointerSpeed, state.pointerSpeedTarget, 6.0, dt);
-    state.pointerSpeedTarget = damp(state.pointerSpeedTarget, 0, 4.2, dt);
+    state.pointerX = damp(state.pointerX, state.pointerTargetX, 10.5, dt);
+    state.pointerY = damp(state.pointerY, state.pointerTargetY, 10.5, dt);
+    state.pointerActive = damp(
+      state.pointerActive,
+      state.pointerTargetActive,
+      state.pointerTargetActive ? 11.0 : 3.6,
+      dt
+    );
 
-    // Mantém a estrutura presente no começo e a apaga antes do portal branco.
-    const p = state.scrollProgress;
-    let fade = 1;
-    if (p > 0.46) fade = 1 - clamp((p - 0.46) / 0.39);
-    fade = Math.pow(fade, 1.35);
+    updateGeometry(now, dt);
+
+    // Keep the background alive during the beginning of the zoom, then dissolve
+    // it progressively so the portal finishes cleanly with no abrupt cutoff.
+    const opacity = 1 - smooth(0.36, 0.84, state.scroll);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(program);
-    gl.uniform1f(loc.time, now * 0.001);
-    gl.uniform2f(loc.pointer, state.pointerX, state.pointerY);
-    gl.uniform1f(loc.pointerActive, state.pointerActive);
-    gl.uniform1f(loc.pointerSpeed, state.pointerSpeed);
-    gl.uniform1f(loc.fade, fade);
-    gl.uniform1f(loc.pixelRatio, state.dpr);
-
-    gl.bindVertexArray(lineVao);
-    gl.uniform1f(loc.pointMode, 0);
-    gl.drawArrays(gl.LINES, 0, lineCount);
-
-    gl.bindVertexArray(pointVao);
-    gl.uniform1f(loc.pointMode, 1);
-    gl.drawArrays(gl.POINTS, 0, pointCount);
+    gl.uniform1f(loc.aspect, state.aspect);
+    gl.uniform1f(loc.opacity, opacity);
+    gl.bindVertexArray(vao);
+    gl.drawArrays(gl.LINES, 0, state.drawVertexCount);
     gl.bindVertexArray(null);
 
-    canvas.style.opacity = String(clamp(fade * 1.08, 0, 1));
+    canvas.style.opacity = String(clamp(opacity * 1.02));
   }
 
   function init() {
@@ -430,11 +461,16 @@
     resize();
     readScroll();
     canvas.classList.add("is-ready");
+    state.lastTime = performance.now();
     requestAnimationFrame(render);
   }
 
   addEventListener("commit:content-ready", init, { once: true });
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { if (!content?.hidden) init(); }, { once: true });
-  } else if (!content?.hidden) init();
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!content?.hidden) init();
+    }, { once: true });
+  } else if (!content?.hidden) {
+    init();
+  }
 })();
