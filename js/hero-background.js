@@ -167,6 +167,7 @@
     pointerActive: 0,
     pointerTargetActive: 0,
     lines: [],
+    config: null,
     vertexData: new Float32Array(0),
     drawVertexCount: 0
   };
@@ -178,11 +179,25 @@
   }
 
   function profileConfig(profile) {
-    // Desktop deliberately keeps the original Demo 6 density: 50 lines x
-    // 50 sampled points. Mobile is lighter without removing the composition.
-    if (profile === "mobile") return { lines: 30, dots: 38, dpr: 1.20 };
-    if (profile === "tablet") return { lines: 40, dots: 44, dpr: 1.40 };
-    return { lines: 50, dots: 50, dpr: 1.65 };
+    // Keep the recognizable Demo 6 construction, but enlarge its WORLD space
+    // so the strands read as an environmental background rather than a small
+    // ornament behind the computer. The line count remains close to the demo;
+    // the main change is length/coverage, not a new visual language.
+    if (profile === "mobile") return {
+      lines: 34, dots: 46, dpr: 1.20,
+      radius: 165, minLength: 0.76, lengthRange: 0.34,
+      hoverRadius: 0.50, hoverPush: 0.095
+    };
+    if (profile === "tablet") return {
+      lines: 46, dots: 54, dpr: 1.40,
+      radius: 195, minLength: 0.74, lengthRange: 0.36,
+      hoverRadius: 0.58, hoverPush: 0.115
+    };
+    return {
+      lines: 56, dots: 60, dpr: 1.65,
+      radius: 220, minLength: 0.72, lengthRange: 0.38,
+      hoverRadius: 0.64, hoverPush: 0.132
+    };
   }
 
   function rebuildGeometry() {
@@ -191,13 +206,17 @@
     state.profile = profile;
 
     const config = profileConfig(profile);
-    const radius = 100; // original Demo 6 value
+    state.config = config;
+    const radius = config.radius;
     const lines = [];
 
     for (let i = 0; i < config.lines; i++) {
-      // These properties mirror demo6.js: speed 250..550, radius ~= 90..110,
-      // and randomized XYZ rotation on every line.
-      const lineRadius = Math.floor(radius + (Math.random() - 0.5) * (radius * 0.2));
+      // Same Demo 6 radial-line construction, expanded spatially. Lengths are
+      // intentionally distributed: most threads stay somewhat closer to the
+      // computer while a smaller set reaches toward the viewport boundaries.
+      // That keeps the origin dense and the outer field progressively lighter.
+      const lengthFactor = config.minLength + Math.pow(Math.random(), 1.42) * config.lengthRange;
+      const lineRadius = Math.floor(radius * lengthFactor);
       const material = pickMaterial();
       const points = [];
 
@@ -264,9 +283,11 @@
   }
 
   function updateLinePoint(line, point, pointIndex, timeMs, groupRx, groupRy, dt) {
-    // Exact natural displacement from Demo 6:
-    // y = sin(time / speed + j * .15) * 12 * ratio
-    const naturalY = Math.sin(timeMs / line.speed + pointIndex * 0.15) * 12 * point.ratio;
+    // Demo 6 natural displacement, scaled only enough to stay proportional to
+    // the longer strands. This avoids turning the enlarged composition into
+    // almost perfectly straight spokes.
+    const waveScale = Math.sqrt(line.radius / 100);
+    const naturalY = Math.sin(timeMs / line.speed + pointIndex * 0.15) * 12 * waveScale * point.ratio;
 
     let p = rotateXYZ(
       point.x,
@@ -285,41 +306,64 @@
       const projected = projectNdc(p[0], p[1], p[2]);
       const dx = projected[0] - state.pointerX;
       const dy = projected[1] - state.pointerY;
-      const distance = Math.hypot(dx, dy);
-      const radiusNdc = 0.235;
+      const config = state.config || profileConfig(state.profile || getProfile());
+
+      // Measure in viewport-height units so the field feels circular on wide
+      // screens instead of becoming a shallow horizontal ellipse. The larger
+      // radius makes a visibly broader area of the existing strands open up.
+      const dxScreen = dx * state.aspect;
+      const distance = Math.hypot(dxScreen, dy);
+      const radiusNdc = config.hoverRadius;
 
       if (distance < radiusNdc) {
         const safeDistance = Math.max(0.0001, distance);
         const t = 1 - distance / radiusNdc;
-        // A smooth local field deforms the SAME existing vertices. No new
-        // strands/particles are introduced by the interaction.
-        const influence = t * t * (3 - 2 * t) * state.pointerActive;
-        const ndcPush = 0.072 * influence;
-        const dirX = dx / safeDistance;
-        const dirY = dy / safeDistance;
+        // Smooth, broad falloff: nearby vertices move most, while strands near
+        // the edge of the field are only nudged. No new geometry is created.
+        const influence = (t * t * (3 - 2 * t)) * state.pointerActive;
+        const ndcPush = config.hoverPush * influence;
 
-        // Convert screen/NDC push back to world units at this vertex depth.
+        // Convert the screen-space direction back to NDC before returning to
+        // world units. If the cursor lands exactly on a vertex, push outward
+        // from the composition center rather than producing a zero vector.
+        let dirXScreen = dxScreen / safeDistance;
+        let dirY = dy / safeDistance;
+        if (distance < 0.002) {
+          const fallbackLen = Math.hypot(projected[0] * state.aspect, projected[1]) || 1;
+          dirXScreen = (projected[0] * state.aspect) / fallbackLen;
+          dirY = projected[1] / fallbackLen;
+        }
+        const dirX = dirXScreen / Math.max(0.2, state.aspect);
+
         targetOffsetX = dirX * ndcPush * projected[2] * state.aspect / FOCAL;
         targetOffsetY = dirY * ndcPush * projected[2] / FOCAL;
       }
     }
 
     const hasForce = Math.abs(targetOffsetX) + Math.abs(targetOffsetY) > 0.0001;
-    const response = hasForce ? 15.0 : 4.3;
+    // Fast enough to follow the cursor, deliberately slower on release so the
+    // strands close back with a light elastic/inertial feeling.
+    const response = hasForce ? 12.0 : 2.85;
     point.offsetX = damp(point.offsetX, targetOffsetX, response, dt);
     point.offsetY = damp(point.offsetY, targetOffsetY, response, dt);
 
     return [p[0] + point.offsetX, p[1] + point.offsetY, p[2]];
   }
 
-  function writeVertex(data, offset, p, line) {
+  function writeVertex(data, offset, p, line, point) {
     data[offset] = p[0];
     data[offset + 1] = p[1];
     data[offset + 2] = p[2];
     data[offset + 3] = line.color[0];
     data[offset + 4] = line.color[1];
     data[offset + 5] = line.color[2];
-    data[offset + 6] = line.alpha;
+
+    // Demo 6 stays visually strongest around its origin, but the expanded
+    // endpoints fade slightly. This creates the requested high density near
+    // the computer and calmer extremities without shortening every strand.
+    const edge = Math.pow(clamp(point.ratio), 1.35);
+    const densityFade = lerp(1.0, 0.43, edge);
+    data[offset + 6] = line.alpha * densityFade;
     return offset + 7;
   }
 
@@ -333,12 +377,15 @@
 
     for (const line of state.lines) {
       const points = line.points;
-      let previous = updateLinePoint(line, points[0], 0, timeMs, groupRx, groupRy, dt);
+      let previousPoint = points[0];
+      let previous = updateLinePoint(line, previousPoint, 0, timeMs, groupRx, groupRy, dt);
 
       for (let j = 1; j < points.length; j++) {
-        const current = updateLinePoint(line, points[j], j, timeMs, groupRx, groupRy, dt);
-        cursor = writeVertex(data, cursor, previous, line);
-        cursor = writeVertex(data, cursor, current, line);
+        const currentPoint = points[j];
+        const current = updateLinePoint(line, currentPoint, j, timeMs, groupRx, groupRy, dt);
+        cursor = writeVertex(data, cursor, previous, line, previousPoint);
+        cursor = writeVertex(data, cursor, current, line, currentPoint);
+        previousPoint = currentPoint;
         previous = current;
       }
     }
