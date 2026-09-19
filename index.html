@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="Commit Labs — laboratório independente de tecnologia, produtos digitais e experimentação." />
+  <title>Commit Labs — Technology Lab</title>
+
+  <script>
+    // A experiência sempre começa pela cena 3D, sem restaurar o scroll anterior.
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    const resetCommitLabsStart = () => {
+      if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    };
+    resetCommitLabsStart();
+    window.addEventListener("pageshow", () => {
+      resetCommitLabsStart();
+      requestAnimationFrame(resetCommitLabsStart);
+    });
+  </script>
+
+  <link rel="stylesheet" href="css/preloader.css" />
+  <link rel="stylesheet" href="css/site.css" />
+  <link rel="stylesheet" href="css/header.css" />
+  <link rel="stylesheet" href="css/about-home.css" />
+  <link rel="stylesheet" href="css/lusion-line.css" />
+  <link rel="stylesheet" href="css/transitions.css" />
+  <link rel="stylesheet" href="css/selected-work.css" />
+  <link rel="stylesheet" href="css/capabilities-entry.css" />
+
+  <!-- GSAP + ScrollTrigger: usados na transição pixelada entre Projects e Capabilities.
+       Se a CDN estiver indisponível, js/section-transitions.js ativa automaticamente
+       um fallback local com o mesmo comportamento de scroll. -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
+
+  <script src="js/model-data.js" defer></script>
+  <script src="js/preloader.js" defer></script>
+  <script src="js/site.js" defer></script>
+  <script src="js/header.js" defer></script>
+  <script src="js/about-home.js" defer></script>
+  <script src="js/lusion-line.js" defer></script>
+  <script src="js/section-transitions.js" defer></script>
+  <script src="js/selected-work.js" defer></script>
+</head>
+<body>
+  <div class="preloader" id="preloader" aria-live="polite" aria-label="Carregando Commit Labs">
+    <div class="preloader__bar" aria-hidden="true">
+      <div class="preloader__bar-fill"></div>
+      <div class="preloader__bar-head"></div>
+    </div>
+    <div class="preloader__counter" aria-hidden="true">
+      <span class="counter__digit"><span class="counter__current">0</span><span class="counter__next">0</span></span>
+      <span class="counter__digit"><span class="counter__current">0</span><span class="counter__next">0</span></span>
+      <span class="counter__digit"><span class="counter__current">1</span><span class="counter__next">1</span></span>
+    </div>
+  </div>
+
+  <header class="site-header" id="siteHeader" aria-label="Navegação principal">
+    <a class="brand" href="#intro" aria-label="Commit Labs — início">COMMIT LABS</a>
+
+    <div class="header-controls" aria-label="Ações do site">
+      <button class="header-language" id="headerLanguageToggle" type="button" aria-label="Alterar idioma para inglês" title="Alterar idioma">
+        <span class="header-language__label">PT BR</span>
+      </button>
+      <a class="header-talk" href="#contact">
+        <span>LET'S TALK</span><i aria-hidden="true"></i>
+      </a>
+      <button class="header-menu-trigger" id="mobileMenuTrigger" type="button" aria-expanded="false" aria-controls="mobileMenu" aria-label="Abrir menu">
+        <span class="header-menu-trigger__label">MENU</span>
+        <span class="header-menu-trigger__dots" aria-hidden="true"><i></i><i></i></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="menu-backdrop" id="menuBackdrop" aria-hidden="true"></div>
+
+  <aside class="floating-menu" id="mobileMenu" aria-hidden="true" aria-label="Menu do site">
+    <nav class="floating-menu__nav" aria-label="Navegação">
+      <a href="#intro"><span>HOME</span><i aria-hidden="true"></i></a>
+      <a href="#about"><span>ABOUT US</span><i aria-hidden="true"></i></a>
+      <a href="#work"><span>PROJECTS</span><i aria-hidden="true"></i></a>
+      <a href="#contact"><span>CONTACT</span><i aria-hidden="true"></i></a>
+    </nav>
+
+    <a class="floating-menu__talk" href="#contact">
+      <span>LET'S TALK</span><span aria-hidden="true">▣</span>
+    </a>
+
+    <div class="floating-menu__labs">
+      <a class="floating-menu__labs-main" href="#capabilities">
+        <span class="floating-menu__labs-mark" aria-hidden="true">ö</span>
+        <span>LABS</span>
+      </a>
+      <div class="floating-menu__language" role="group" aria-label="Selecionar idioma">
+        <button type="button" data-language="pt" aria-pressed="true">PT</button>
+        <span aria-hidden="true">/</span>
+        <button type="button" data-language="en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+  </aside>
+
+  <main id="site-content" hidden>
+    <section class="scroll-scene" id="intro" aria-label="Experiência 3D Commit Labs">
+      <div class="stage" id="stage">
+        <canvas id="pcCanvas" aria-label="Computador 3D interativo. Arraste para girar."></canvas>
+
+        <div class="portal-white" id="portalWhite" aria-hidden="true">
+          <span>COMMIT LABS</span>
+        </div>
+
+        <div class="model-loader" id="modelLoader" aria-live="polite">
+          <span class="model-loader__dot"></span>
+          <span>PREPARANDO 3D</span>
+        </div>
+
+        <div class="drag-label" id="dragLabel" aria-hidden="true">ARRASTE PARA GIRAR</div>
+
+        <div class="scroll-hint" id="scrollHint" aria-hidden="true">
+          <span>ROLE PARA EXPLORAR</span>
+          <span class="scroll-hint__line"></span>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="about-home"
+      id="about"
+      data-section-theme="light"
+      aria-labelledby="aboutTitle"
+    >
+      <div class="about-home__technical-grid" aria-hidden="true"></div>
+
+      <div class="about-home__inner">
+        <p class="about-home__label" data-i18n-pt="● SOBRE A COMMIT LABS" data-i18n-en="● ABOUT COMMIT LABS">● SOBRE A COMMIT LABS</p>
+
+        <div class="about-home__layout">
+          <h1
+            class="about-home__title"
+            id="aboutTitle"
+            data-i18n-html-pt="<span>UM LABORATÓRIO</span><span>DE TECNOLOGIA</span><span>PARA O QUE VEM</span><span><strong>A SEGUIR.</strong></span>"
+            data-i18n-html-en="<span>A TECHNOLOGY LAB</span><span>FOR WHAT'S</span><span><strong>NEXT.</strong></span>"
+          >
+            <span>UM LABORATÓRIO</span>
+            <span>DE TECNOLOGIA</span>
+            <span>PARA O QUE VEM</span>
+            <span><strong>A SEGUIR.</strong></span>
+          </h1>
+
+          <div class="about-home__copy-column">
+            <p
+              class="about-home__lead"
+              data-i18n-pt="A Commit Labs é um laboratório independente de tecnologia onde ideias são estudadas, desenvolvidas, testadas e transformadas em produtos digitais."
+              data-i18n-en="Commit Labs is an independent technology lab where ideas are studied, developed, tested and transformed into digital products."
+            >A Commit Labs é um laboratório independente de tecnologia onde ideias são estudadas, desenvolvidas, testadas e transformadas em produtos digitais.</p>
+            <p
+              class="about-home__secondary"
+              data-i18n-pt="Unimos estratégia, desenvolvimento e experimentação para construir produtos úteis, escaláveis e preparados para evoluir."
+              data-i18n-en="We combine strategy, development and experimentation to build useful, scalable and evolving digital products."
+            >Unimos estratégia, desenvolvimento e experimentação para construir produtos úteis, escaláveis e preparados para evoluir.</p>
+            <a class="about-home__cta" href="#work">
+              <span data-i18n-pt="Conheça a Commit Labs" data-i18n-en="Our story">Conheça a Commit Labs</span>
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="commit-line-wrap" aria-hidden="true">
+          <svg class="commit-line" id="commitLine" viewBox="0 0 1600 1100" preserveAspectRatio="none">
+            <path class="commit-line__ghost" d="M 1220 -220 C 1240 -60 1180 45 1020 96 C 820 160 560 105 330 145 C 150 176 32 230 -40 290 C -65 312 -40 345 20 360 C 150 395 320 350 465 380 C 590 406 685 455 700 525 C 715 595 680 655 640 720 C 600 785 585 850 600 930 C 615 1010 620 1070 628 1160" />
+            <path class="commit-line__path" id="commitLinePath" pathLength="1000" style="stroke-dasharray:1000 1000;stroke-dashoffset:1000" d="M 1220 -220 C 1240 -60 1180 45 1020 96 C 820 160 560 105 330 145 C 150 176 32 230 -40 290 C -65 312 -40 345 20 360 C 150 395 320 350 465 380 C 590 406 685 455 700 525 C 715 595 680 655 640 720 C 600 785 585 850 600 930 C 615 1010 620 1070 628 1160" />
+          </svg>
+        </div>
+
+      </div>
+    </section>
+
+    <section
+      class="selected-work"
+      id="work"
+      data-section-theme="light"
+      data-st-03="20"
+      data-st-mobile-resolution="14"
+      data-st-spread="5"
+      data-st-fill-duration="0.03"
+      data-st-layer-height="64vh"
+      data-st-cover-start="bottom bottom+=20%"
+      data-st-fill-color="#0D0D0F"
+      aria-labelledby="workTitle"
+    >
+      <div class="selected-work__technical-grid" aria-hidden="true"></div>
+
+      <div class="selected-work__header">
+        <div class="selected-work__header-inner">
+          <div class="selected-work__heading-row">
+            <div class="selected-work__heading-main">
+              <p class="selected-work__eyebrow" data-i18n-pt="● TRABALHOS EM DESTAQUE" data-i18n-en="● FEATURED WORK">● TRABALHOS EM DESTAQUE</p>
+              <h2
+                class="selected-work__title"
+                id="workTitle"
+                data-i18n-pt="Projetos em destaque"
+                data-i18n-en="Featured Work"
+              >Projetos em destaque</h2>
+            </div>
+            <p
+              class="selected-work__intro"
+              data-i18n-pt="Uma seleção de produtos, sistemas e experiências digitais desenvolvidos pela Commit Labs."
+              data-i18n-en="A selection of digital products, systems and experiences built at Commit Labs."
+            >Uma seleção de produtos, sistemas e experiências digitais desenvolvidos pela Commit Labs.</p>
+          </div>
+
+          <div class="selected-work__filters" id="workFilters" role="group" aria-label="Filtrar projetos">
+            <button class="work-filter is-active" type="button" data-filter="all" aria-pressed="true">
+              <span data-i18n-pt="Todos" data-i18n-en="All">Todos</span><small data-filter-count="all">6</small>
+            </button>
+            <button class="work-filter" type="button" data-filter="digital-products" aria-pressed="false">
+              <span>Digital</span><small data-filter-count="digital-products">3</small>
+            </button>
+            <button class="work-filter" type="button" data-filter="backend-systems" aria-pressed="false">
+              <span>Backend</span><small data-filter-count="backend-systems">4</small>
+            </button>
+            <button class="work-filter" type="button" data-filter="web-experiences" aria-pressed="false">
+              <span>Web</span><small data-filter-count="web-experiences">3</small>
+            </button>
+            <button class="work-filter" type="button" data-filter="e-commerce" aria-pressed="false">
+              <span>E-commerce</span><small data-filter-count="e-commerce">1</small>
+            </button>
+            <button class="work-filter" type="button" data-filter="automation" aria-pressed="false">
+              <span>Automation</span><small data-filter-count="automation">2</small>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="selected-work__rows" id="workRows">
+        <div class="work-row" data-row="1">
+          <div class="work-row__grid">
+            <a class="work-card" href="project/ontable/" data-project="ontable" data-categories="digital-products backend-systems web-experiences">
+              <div class="work-card__media"><img src="assets/images/projects/ontable.svg" alt="Visual do projeto OnTable" /></div>
+              <p class="work-card__tags">DIGITAL PRODUCT • BACKEND • WEB</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>OnTable</h3></div>
+            </a>
+
+            <a class="work-card" href="project/controly/" data-project="controly" data-categories="digital-products web-experiences">
+              <div class="work-card__media"><img src="assets/images/projects/controly.svg" alt="Visual do projeto Controly" loading="lazy" /></div>
+              <p class="work-card__tags">DIGITAL PRODUCT • WEB EXPERIENCE</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>Controly</h3></div>
+            </a>
+          </div>
+        </div>
+
+        <div class="work-row" data-row="2">
+          <div class="work-row__grid">
+            <a class="work-card" href="project/rodapay/" data-project="rodapay" data-categories="digital-products backend-systems">
+              <div class="work-card__media"><img src="assets/images/projects/rodapay.svg" alt="Visual do projeto RodaPay" loading="lazy" /></div>
+              <p class="work-card__tags">FINTECH • BACKEND • SYSTEMS</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>RodaPay</h3></div>
+            </a>
+
+            <a class="work-card" href="project/dudoce/" data-project="dudoce" data-categories="e-commerce web-experiences">
+              <div class="work-card__media"><img src="assets/images/projects/dudoce.svg" alt="Visual do projeto Dudôce" loading="lazy" /></div>
+              <p class="work-card__tags">E-COMMERCE • WEB EXPERIENCE</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>Dudôce</h3></div>
+            </a>
+          </div>
+        </div>
+
+        <div class="work-row" data-row="3">
+          <div class="work-row__grid">
+            <a class="work-card" href="project/conciliapy/" data-project="conciliapy" data-categories="backend-systems automation">
+              <div class="work-card__media"><img src="assets/images/projects/conciliapy.svg" alt="Visual do projeto ConciliaPy" loading="lazy" /></div>
+              <p class="work-card__tags">BACKEND • AUTOMATION</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>ConciliaPy</h3></div>
+            </a>
+
+            <a class="work-card" href="project/orderflow/" data-project="orderflow" data-categories="backend-systems automation">
+              <div class="work-card__media"><img src="assets/images/projects/orderflow.svg" alt="Visual do projeto OrderFlow" loading="lazy" /></div>
+              <p class="work-card__tags">AUTOMATION • SYSTEMS</p>
+              <div class="work-card__title-row"><span class="work-card__arrow" aria-hidden="true">→</span><h3>OrderFlow</h3></div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="selected-work__footer">
+        <a class="selected-work__view-all" href="work/">
+          <span data-i18n-pt="VER TODOS OS PROJETOS" data-i18n-en="VIEW ALL PROJECTS">VER TODOS OS PROJETOS</span><span aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <!-- Espaço de transição: o grid de pixels fica ancorado no fim da seção
+           e só começa depois de todo o conteúdo de projetos. -->
+      <div class="selected-work__transition-runway" aria-hidden="true"></div>
+
+    </section>
+
+    <section class="capabilities-entry" id="capabilities" data-section-theme="dark" aria-labelledby="capabilitiesTitle">
+      <div class="capabilities-entry__grid" aria-hidden="true"></div>
+      <span id="contact" aria-hidden="true"></span>
+      <div class="capabilities-entry__inner">
+        <p class="capabilities-entry__eyebrow" data-i18n-pt="● CAPABILITIES" data-i18n-en="● CAPABILITIES">● CAPABILITIES</p>
+        <h2
+          class="capabilities-entry__title"
+          id="capabilitiesTitle"
+          data-i18n-html-pt="<span>ESTRATÉGIA.</span><span>ENGENHARIA.</span><span><strong>EVOLUÇÃO.</strong></span>"
+          data-i18n-html-en="<span>STRATEGY.</span><span>ENGINEERING.</span><span><strong>EVOLUTION.</strong></span>"
+        ><span>ESTRATÉGIA.</span><span>ENGENHARIA.</span><span><strong>EVOLUÇÃO.</strong></span></h2>
+        <p
+          class="capabilities-entry__copy"
+          data-i18n-pt="A próxima seção começa aqui. O handoff vindo de Selected Work é feito pela transição pixelada controlada pelo scroll."
+          data-i18n-en="The next section starts here. The handoff from Selected Work uses the scroll-controlled pixel transition."
+        >A próxima seção começa aqui. O handoff vindo de Selected Work é feito pela transição pixelada controlada pelo scroll.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

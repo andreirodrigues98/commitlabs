@@ -1,0 +1,201 @@
+:root {
+  /* Commit Labs */
+  --cl-black: #000000;
+  --cl-graphite: #000000;
+  --cl-blue: #0066FF;
+  --cl-white: #F2F2F2;
+
+  /* Preloader */
+  --loader-width: clamp(168px, 12vw, 210px);
+  --loader-height: clamp(20px, 2.7vh, 26px);
+  --loader-progress: 0%;
+
+  /* Contador — proporções inspiradas na referência enviada. */
+  --counter-size: clamp(116px, 8.2vw, 140px);
+  --counter-bottom: -5px;
+  --counter-digit-width: .515em;
+
+  --ease-out: cubic-bezier(.22, .78, .22, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #000;
+}
+
+/* Tela preta integral, seguindo a composição da referência da Lusion. */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  background: var(--cl-black);
+  color: var(--cl-white);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 360ms ease, visibility 360ms linear;
+}
+
+/* Bloco central menor e mais fino, conforme solicitado. */
+.preloader__bar {
+  position: absolute;
+  left: 50%;
+  top: 57.2%;
+  width: var(--loader-width);
+  height: var(--loader-height);
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  background: var(--cl-graphite);
+}
+
+.preloader__bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--loader-progress);
+  background: var(--cl-blue);
+  will-change: width;
+}
+
+/* A pequena lâmina clara acompanha a frente do preenchimento. */
+.preloader__bar-head {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--loader-progress);
+  width: 7px;
+  background: var(--cl-white);
+  transform: translateX(-1px);
+  will-change: left;
+}
+
+/* 001, 002, 003... compacto, baixo e parcialmente cortado pela viewport. */
+.preloader__counter {
+  position: absolute;
+  left: 6px;
+  bottom: var(--counter-bottom);
+  display: flex;
+  align-items: flex-end;
+  height: .82em;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: var(--counter-size);
+  font-weight: 300;
+  line-height: .78;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  pointer-events: none;
+}
+
+.counter__digit {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 var(--counter-digit-width);
+  width: var(--counter-digit-width);
+  height: .82em;
+  transform-style: preserve-3d;
+  perspective: 360px;
+}
+
+/* Traz os algarismos para perto sem alterar a animação individual. */
+.counter__digit + .counter__digit {
+  margin-left: -.025em;
+}
+
+.counter__current,
+.counter__next {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+.counter__current {
+  transform: translateY(0) rotateX(0deg);
+  opacity: 1;
+}
+
+.counter__next {
+  transform: translateY(92%) rotateX(-20deg);
+  opacity: 0;
+}
+
+.counter__digit.is-changing .counter__current {
+  animation: digit-out 170ms var(--ease-out) forwards;
+}
+
+.counter__digit.is-changing .counter__next {
+  animation: digit-in 170ms var(--ease-out) forwards;
+}
+
+@keyframes digit-out {
+  to {
+    transform: translateY(-92%) rotateX(20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes digit-in {
+  to {
+    transform: translateY(0) rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.preloader.is-complete .preloader__bar-fill {
+  width: 100%;
+}
+
+.preloader.is-complete .preloader__bar-head {
+  left: 100%;
+}
+
+.preloader.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preloader.is-hidden {
+  visibility: hidden;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --loader-width: clamp(145px, 37vw, 185px);
+    --loader-height: clamp(18px, 2.8vh, 23px);
+  }
+
+  .preloader__bar {
+    top: 56.5%;
+  }
+
+  .preloader__counter {
+    left: 5px;
+    bottom: -10px;
+    font-size: clamp(88px, 24vw, 116px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .counter__digit.is-changing .counter__current,
+  .counter__digit.is-changing .counter__next {
+    animation-duration: 1ms;
+  }
+
+  .preloader {
+    transition-duration: 140ms;
+  }
+}

@@ -1,0 +1,20 @@
+/* A grade é criada por JavaScript dentro da seção de saída. */
+[data-st-03] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-st-03-pixels] {
+  contain: layout paint;
+  transform: translateZ(0);
+}
+
+[data-st-03-cell] {
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Não esconder o handoff: ele continua ligado ao scroll, sem autoplay. */
+  [data-st-03-pixels] { transform: translateZ(0); }
+}

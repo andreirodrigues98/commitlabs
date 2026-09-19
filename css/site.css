@@ -1,0 +1,193 @@
+:root {
+  --cl-black: #000000;
+  --cl-graphite: #0D0D0F;
+  --cl-paper: #F1F2F3;
+  --cl-ink: #0D0D0F;
+  --cl-blue: #0066FF;
+  --cl-white: #F4F5F7;
+}
+
+* { box-sizing: border-box; }
+html {
+  background: var(--cl-black);
+  color-scheme: dark;
+  scroll-behavior: auto;
+}
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--cl-black);
+  color: var(--cl-white);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+body.is-menu-open { overflow: hidden; }
+a { color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; }
+main { position: relative; background: var(--cl-black); }
+
+.scroll-scene {
+  position: relative;
+  z-index: 5;
+  height: 188vh;
+  background: transparent;
+}
+
+.stage {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #000;
+}
+
+
+.portal-white {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  background: var(--cl-paper);
+  color: #0D0D0F;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+.portal-white span {
+  font-size: clamp(12px, 1.15vw, 18px);
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+#pcCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  cursor: grab;
+  touch-action: pan-y;
+  outline: 0;
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+#pcCanvas.is-ready { opacity: 1; }
+#pcCanvas.is-dragging { cursor: grabbing; }
+
+.model-loader {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transform: translate(-50%, -50%);
+  color: rgba(255,255,255,.48);
+  font-size: 9px;
+  letter-spacing: .2em;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+.model-loader.is-hidden { opacity: 0; }
+.model-loader__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  animation: loader-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes loader-pulse { to { opacity: .18; transform: scale(.65); } }
+
+.drag-label {
+  position: absolute;
+  left: 50%;
+  top: 10%;
+  z-index: 4;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,.24);
+  font-size: 8px;
+  letter-spacing: .18em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 650ms ease;
+}
+.drag-label.is-visible { opacity: 1; }
+
+.scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,.46);
+  font-size: 9px;
+  letter-spacing: .2em;
+  pointer-events: none;
+  will-change: opacity;
+}
+.scroll-hint__line {
+  position: relative;
+  width: 1px;
+  height: 28px;
+  overflow: hidden;
+  background: rgba(255,255,255,.13);
+}
+.scroll-hint__line::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -100%;
+  width: 1px;
+  height: 100%;
+  background: rgba(255,255,255,.8);
+  animation: scroll-line 1.6s cubic-bezier(.65,0,.35,1) infinite;
+}
+@keyframes scroll-line { to { transform: translateY(200%); } }
+
+
+@media (max-width: 760px) {
+  .scroll-scene { height: 176vh; }
+  .stage { min-height: 520px; }
+  .drag-label { top: 9%; }
+  .about-snapshot__label { top: 92px; }
+  .about-snapshot__title {
+    top: 29%;
+    right: 20px;
+    font-size: clamp(42px, 12.5vw, 74px);
+  }
+  .about-snapshot__copy {
+    left: 30px;
+    right: 30px;
+    top: auto;
+    bottom: 16%;
+    width: auto;
+    font-size: 13px;
+  }
+  .about-snapshot__curve { bottom: -1%; height: 49%; }
+  .about-snapshot__curve path { stroke-width: 28; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint__line::after,
+  .model-loader__dot { animation: none; }
+  #pcCanvas,
+  .model-loader,
+  .drag-label { transition-duration: 1ms; }
+}
+
+html[lang="pt-BR"] .about-snapshot__title {
+  font-size: clamp(42px, 5.9vw, 102px);
+}

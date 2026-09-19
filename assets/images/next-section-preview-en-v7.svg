@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768" viewBox="0 0 1024 768">
+  <rect width="1024" height="768" fill="#F1F2F3"/>
+  <g stroke="rgba(13,13,15,0.05)" stroke-width="1">
+    <path d="M96 0V768"/><path d="M192 0V768"/><path d="M288 0V768"/><path d="M384 0V768"/><path d="M480 0V768"/><path d="M576 0V768"/><path d="M672 0V768"/><path d="M768 0V768"/><path d="M864 0V768"/><path d="M960 0V768"/>
+    <path d="M0 96H1024"/><path d="M0 192H1024"/><path d="M0 288H1024"/><path d="M0 384H1024"/><path d="M0 480H1024"/><path d="M0 576H1024"/><path d="M0 672H1024"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif" fill="#0D0D0F">
+    <text x="74" y="53" font-size="15" font-weight="700">COMMIT LABS</text>
+    <text x="48" y="132" font-size="12" font-weight="700" letter-spacing="2.2">● ABOUT COMMIT LABS</text>
+
+    <text x="48" y="282" font-size="76" font-weight="400" letter-spacing="-4.5">A TECHNOLOGY LAB</text>
+    <text x="48" y="366" font-size="76" font-weight="400" letter-spacing="-4.5">FOR WHAT'S</text>
+    <text x="48" y="450" font-size="76" font-weight="400" letter-spacing="-4.5" fill="#0066FF">NEXT.</text>
+
+    <text x="630" y="342" font-size="17" fill="#121316">
+      <tspan x="630" dy="0">Commit Labs is an independent</tspan>
+      <tspan x="630" dy="26">technology lab where ideas are studied,</tspan>
+      <tspan x="630" dy="26">developed, tested and transformed</tspan>
+      <tspan x="630" dy="26">into digital products.</tspan>
+    </text>
+
+    <text x="630" y="500" font-size="14" fill="rgba(18,19,22,0.58)">
+      <tspan x="630" dy="0">We combine strategy, development and</tspan>
+      <tspan x="630" dy="24">experimentation to build useful, scalable</tspan>
+      <tspan x="630" dy="24">and evolving digital products.</tspan>
+    </text>
+
+    <text x="630" y="633" font-size="12" fill="#0D0D0F">Our story →</text>
+    <text x="48" y="734" font-size="8" fill="rgba(13,13,15,0.34)" letter-spacing="2.1">LAB / 01</text>
+    <text x="902" y="734" text-anchor="end" font-size="8" fill="rgba(13,13,15,0.34)" letter-spacing="2.1">SCROLL / FORWARD</text>
+  </g>
+</svg>

@@ -1,0 +1,61 @@
+.commit-line-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transform: translate3d(calc(var(--line-parallax-x, 0px) + var(--line-scroll-x, 0px)), calc(var(--line-parallax-y, 0px) + var(--line-scroll-y, 0px)), 0);
+  will-change: transform;
+}
+
+.commit-line {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.commit-line__ghost,
+.commit-line__path {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.commit-line__ghost {
+  stroke: transparent;
+  stroke-width: clamp(26px, 2.8vw, 40px);
+}
+
+.commit-line__path {
+  stroke: var(--cl-blue);
+  stroke-width: clamp(26px, 2.8vw, 40px);
+  filter: none;
+  /* A linha nasce escondida; JS apenas reduz o offset conforme o scroll. */
+  stroke-dasharray: 1000 1000;
+  stroke-dashoffset: 1000;
+}
+
+
+@media (max-width: 1080px) {
+  .commit-line-wrap {
+    inset: 0 -7vw 0 -2vw;
+    width: auto;
+    opacity: .96;
+  }
+}
+
+@media (max-width: 760px) {
+  .commit-line-wrap {
+    inset: 0 -34vw 0 -6vw;
+    width: auto;
+    opacity: .88;
+  }
+  .commit-line__ghost,
+ .commit-line__path { stroke-width: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commit-line-wrap { transform: none !important; }
+}
